@@ -1,0 +1,50 @@
+* Fri Jul 15 2011 Elena Reshetova <elena.reshetova@linux.intel.com> - 3.12.10
+- Upgrade to 3.12.10
+  - patch nss-sysinit-fix-trustorder.patch removed
+  - patch nss-sysinit-userdb-first.patch upgraded
+
+
+* Wed Jul 13 2011 Ulf Hofemeier <ulf.hofemeier@linux.intel.com> - 3.12.9
+- Removed patch nss-bug524013.patch from project directory
+
+* Tue Jun 28 2011 Yan Li <yan.i.li@intel.com> - 3.12.9
+- Fixed bugs of importing certs into user db, required by enterprise
+  features (RH#643123, RH#603313)
+- Remove obsoleted patch files
+  - nss-sysinit.patch
+  - nss-sysinit-2.patch
+  - nss-bug524013.patch
+
+* Fri May 13 2011 Anas Nashif <anas.nashif@intel.com> - 3.12.9
+- Do not run test code, it does not work
+
+* Wed 02 Mar 2011 Passion Zhao <passion.zhao@intel.com>
+- Update to 3.12.9 from fennec requirement #BMC13425
+
+* Tue 16 Nov 2010 Stephan Binner <stephan.binner@basyskom.de>
+- Update to 3.12.8, disable non-applying likely obsolete patches, BMC#10122
+
+* Fri Apr 30 2010 David Woodhouse <David.Woodhouse@intel.com>
+- Fix Mozilla bug #524013 (hopefully MeeGo bug #1558)
+
+* Tue Feb 16 2010 Anas Nashif <anas.nashif@intel.com> - 3.12.5
+- Fixed compile warnings
+
+* Wed Dec 16 2009 David Woodhouse <David.Woodhouse@intel.com>
+- nss-sysinit package needs to require coreutils
+
+* Sun Dec 13 2009 David Woodhouse <David.Woodhouse@intel.com>
+- Update to 3.12.5
+- Support shared system database
+
+* Sat Apr 25 2009 Anas Nashif <anas.nashif@intel.com> 3.12.3
+- Update to 3.12.3
+
+* Fri Apr 03 2009 Anas Nashif <anas.nashif@intel.com> 3.11.99.5
+- Add PreReq on ldconfig
+
+* Fri Apr 03 2009 Anas Nashif <anas.nashif@intel.com> 3.11.99.5
+- Add PreReq on ldconfig
+
+* Tue Dec 02 2008 Anas Nashif <anas.nashif@intel.com> 3.11.99.5
+- Fixed %install section

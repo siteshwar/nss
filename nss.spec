@@ -37,7 +37,7 @@ Patch2:           nss-nolocalsql.patch
 Patch3: 	  nss-3.12.8-char.patch
 Patch6:           nss-enable-pem.patch
 Patch8:           nss-sysinit-userdb-first.patch
-
+Patch9:           nss-3.12.10-notimestamps.patch
 %description
 Network Security Services (NSS) is a set of libraries designed to
 support cross-platform development of security-enabled client and
@@ -122,6 +122,7 @@ low level services.
 %patch3 -p1
 %patch6 -p0 -b .libpem
 %patch8 -p0 -b .rh603313
+%patch9 -p1 -b .timestamping
 
 %build
 

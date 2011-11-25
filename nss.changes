@@ -1,3 +1,6 @@
+* Fri Nov 25 2011 Carsten Munk <carsten@maemo.org> - 3.12.10
+- Add patch to remove timestamps from nss, reducing rebuilds severely.
+
 * Fri Jul 15 2011 Elena Reshetova <elena.reshetova@linux.intel.com> - 3.12.10
 - Upgrade to 3.12.10
   - patch nss-sysinit-fix-trustorder.patch removed

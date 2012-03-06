@@ -1,9 +1,9 @@
-%define nspr_version 4.8
+%define nspr_version 4.9
 %define unsupported_tools_directory %{_libdir}/nss/unsupported-tools
 
 Summary:          Network Security Services
 Name:             nss
-Version:          3.12.10
+Version:          3.13.3
 Release:          1
 License:          MPLv1.1 or GPLv2+ or LGPLv2+
 URL:              http://www.mozilla.org/projects/security/pki/nss/
@@ -11,14 +11,24 @@ Group:            System/Libraries
 Requires:         nspr >= %{nspr_version}
 Requires:         nss-softokn-freebl%{_isa} >= %{version}
 Requires:         nss-system-init
-Requires:         sqlite
 BuildRequires:    nspr-devel >= %{nspr_version}
 BuildRequires:    sqlite-devel
 BuildRequires:    zlib-devel
 BuildRequires:    pkgconfig
 BuildRequires:    gawk
 
-Source0:          %{name}-%{version}-stripped.tar.gz
+Source0:          %{name}-%{version}-stripped.tar.bz2
+# The stripped tar ball is a subset of the upstream sources with
+# patent-encumbered cryptographic algorithms removed.
+# Use this script to remove them and create the stripped archive.
+# 1. Download the sources nss-{version}.tar.gz found within 
+# http://ftp.mozilla.org/pub/mozilla.org/security/nss/releases/
+# in a subdirectory named NSS_${major}_${minor}_${maint}_RTM/src
+# 2. In the download directory execute
+# ./mozilla-crypto-strip.sh ${name}-${version}.tar.gz
+# to produce ${name}-${version}-stripped.tar.bz2
+# for uploading to the lookaside cache.
+Source100:        mozilla-crypto-strip.sh
 
 Source1:          nss.pc.in
 Source2:          nss-config.in
@@ -34,10 +44,11 @@ Source12:         %{name}-pem-20101125.tar.bz2
 
 Patch1:           nss-no-rpath.patch
 Patch2:           nss-nolocalsql.patch
-Patch3: 	  nss-3.12.8-char.patch
+Patch3:           nss-3.12.8-char.patch
 Patch6:           nss-enable-pem.patch
 Patch8:           nss-sysinit-userdb-first.patch
-Patch9:           nss-3.12.10-notimestamps.patch
+Patch9:           nss-3.13.3-notimestamps.patch
+
 %description
 Network Security Services (NSS) is a set of libraries designed to
 support cross-platform development of security-enabled client and
@@ -64,7 +75,6 @@ library.
 Summary:          Tools for the Network Security Services
 Group:            System/Base
 Requires:         nss = %{version}-%{release}
-Requires:         zlib
 
 %description tools
 Network Security Services (NSS) is a set of libraries designed to
@@ -126,32 +136,27 @@ low level services.
 
 %build
 
-FREEBL_NO_DEPEND=1
-export FREEBL_NO_DEPEND
+export FREEBL_NO_DEPEND=1
+export FREEBL_LOWHASH=1
 
 # Enable compiler optimizations and disable debugging code
-BUILD_OPT=1
-export BUILD_OPT
+export BUILD_OPT=1
 
 # Generate symbolic info for debuggers
-XCFLAGS=$RPM_OPT_FLAGS
-export XCFLAGS
+export XCFLAGS=$RPM_OPT_FLAGS
 
-PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
-PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1
+export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
+export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1
 
-export PKG_CONFIG_ALLOW_SYSTEM_LIBS
-export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS
+export NSPR_INCLUDE_DIR=`/usr/bin/pkg-config --cflags-only-I nspr | sed 's/-I//'`
+export NSPR_LIB_DIR=%{_libdir}
 
-NSPR_INCLUDE_DIR=`/usr/bin/pkg-config --cflags-only-I nspr | sed 's/-I//'`
-NSPR_LIB_DIR=`/usr/bin/pkg-config --libs-only-L nspr | sed 's/-L//'`
+export USE_SYSTEM_ZLIB=1
 
-export NSPR_INCLUDE_DIR
-export NSPR_LIB_DIR
+export NSS_USE_SYSTEM_SQLITE=1
 
 %ifarch x86_64 ppc64 ia64 s390x sparc64
-USE_64=1
-export USE_64
+export USE_64=1
 %endif
 
 # NSS_ENABLE_ECC=1
@@ -167,8 +172,8 @@ export USE_64
     %{?__debug_package:%{__debug_install_post}} \
     %{__arch_install_post} \
     %{__os_install_post} \
-    $RPM_BUILD_ROOT/%{unsupported_tools_directory}/shlibsign -i $RPM_BUILD_ROOT/%{_lib}/libsoftokn3.so \
-    $RPM_BUILD_ROOT/%{unsupported_tools_directory}/shlibsign -i $RPM_BUILD_ROOT/%{_lib}/libfreebl3.so \
+    $RPM_BUILD_ROOT/%{unsupported_tools_directory}/shlibsign -i $RPM_BUILD_ROOT/%{_libdir}/libsoftokn3.so \
+    $RPM_BUILD_ROOT/%{unsupported_tools_directory}/shlibsign -i $RPM_BUILD_ROOT/%{_libdir}/libfreebl3.so \
 %{nil}
 
 %install
@@ -210,22 +215,14 @@ install -m 755 %{SOURCE9} $RPM_BUILD_ROOT/%{_bindir}/setup-nsssysinit.sh
 
 %{__mkdir_p} $RPM_BUILD_ROOT/%{_includedir}/nss3
 %{__mkdir_p} $RPM_BUILD_ROOT/%{_bindir}
-%{__mkdir_p} $RPM_BUILD_ROOT/%{_lib}
 %{__mkdir_p} $RPM_BUILD_ROOT/%{unsupported_tools_directory}
 
 # Copy the binary libraries we want
 for file in libsoftokn3.so libfreebl3.so libnss3.so libnssutil3.so \
             libssl3.so libsmime3.so libnssckbi.so libnsspem.so libnssdbm3.so \
-	    libnsssysinit.so
+            libnsssysinit.so
 do
-  %{__install} -m 755 mozilla/dist/*.OBJ/lib/$file $RPM_BUILD_ROOT/%{_lib}
-  ln -sf ../../%{_lib}/$file $RPM_BUILD_ROOT/%{_libdir}/$file
-done
-
-# Make sure chk files can be found in both places
-for file in libsoftokn3.chk libfreebl3.chk
-do
-  ln -s ../../%{_lib}/$file $RPM_BUILD_ROOT/%{_libdir}/$file
+  %{__install} -m 755 mozilla/dist/*.OBJ/lib/$file $RPM_BUILD_ROOT/%{_libdir}
 done
 
 # Install the empty NSS db files
@@ -286,15 +283,15 @@ done
 
 %files
 %defattr(-,root,root,-)
-/%{_lib}/libnss3.so
-/%{_lib}/libnssutil3.so
-/%{_lib}/libnssdbm3.so
-/%{_lib}/libssl3.so
-/%{_lib}/libsmime3.so
-/%{_lib}/libsoftokn3.so
-/%{_lib}/libsoftokn3.chk
-/%{_lib}/libnssckbi.so
-/%{_lib}/libnsspem.so
+%{_libdir}/libnss3.so
+%{_libdir}/libnssutil3.so
+%{_libdir}/libnssdbm3.so
+%{_libdir}/libssl3.so
+%{_libdir}/libsmime3.so
+%{_libdir}/libsoftokn3.so
+%{_libdir}/libsoftokn3.chk
+%{_libdir}/libnssckbi.so
+%{_libdir}/libnsspem.so
 %{unsupported_tools_directory}/shlibsign
 %dir %{_libdir}/nss
 %dir %{unsupported_tools_directory}
@@ -303,12 +300,12 @@ done
 %config(noreplace) %{_sysconfdir}/pki/nssdb/key3.db
 %config(noreplace) %{_sysconfdir}/pki/nssdb/secmod.db
 %dir %{_sysconfdir}/prelink.conf.d
-%{_sysconfdir}/prelink.conf.d/nss-prelink.conf
+%config %{_sysconfdir}/prelink.conf.d/nss-prelink.conf
 
 
 %files sysinit
 %defattr(-,root,root,-)
-/%{_lib}/libnsssysinit.so
+%{_libdir}/libnsssysinit.so
 %config(noreplace) %{_sysconfdir}/pki/nssdb/cert9.db
 %config(noreplace) %{_sysconfdir}/pki/nssdb/key4.db
 %config(noreplace) %{_sysconfdir}/pki/nssdb/pkcs11.txt
@@ -317,8 +314,8 @@ done
 
 %files softokn-freebl
 %defattr(-,root,root,-)
-/%{_lib}/libfreebl3.so
-/%{_lib}/libfreebl3.chk
+%{_libdir}/libfreebl3.so
+%{_libdir}/libfreebl3.chk
 
 %files tools
 %defattr(-,root,root,-)

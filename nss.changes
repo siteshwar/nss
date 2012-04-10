@@ -1,3 +1,6 @@
+* Sat Apr 07 2012 Marko Saukko <sage@merproject.org> - 3.13.3
+- Some files are packaged twice by accident that causes conflicts.
+
 * Tue Feb 28 2012 Marko Saukko <marko.saukko@gmail.com> - 3.13.3
 - Fixes MER#58: Update to version 3.13.3.
 - Moved libs from /lib/ to /usr/lib/ part of MER#174

@@ -342,18 +342,6 @@ done
 
 %files devel
 %defattr(-,root,root,-)
-%{_libdir}/libnss3.so
-%{_libdir}/libnssutil3.so
-%{_libdir}/libnssdbm3.so
-%{_libdir}/libssl3.so
-%{_libdir}/libsmime3.so
-%{_libdir}/libsoftokn3.so
-%{_libdir}/libsoftokn3.chk
-%{_libdir}/libnssckbi.so
-%{_libdir}/libnsspem.so
-%{_libdir}/libnsssysinit.so
-%{_libdir}/libfreebl3.so
-%{_libdir}/libfreebl3.chk
 %{_libdir}/libcrmf.a
 %{_libdir}/pkgconfig/nss.pc
 %{_bindir}/nss-config

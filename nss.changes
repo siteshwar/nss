@@ -1,3 +1,6 @@
+* Tue Jan 22 2013 Oleg Girko <ol+mer@infoserver.ru> - 3.13.3
+- Do not rely on already installed nss to sign shared libraries.
+
 * Sat Apr 07 2012 Marko Saukko <sage@merproject.org> - 3.13.3
 - Some files are packaged twice by accident that causes conflicts.
 

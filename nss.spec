@@ -3,7 +3,7 @@
 
 Summary:          Network Security Services
 Name:             nss
-Version:          3.13.3
+Version:          3.14.3
 Release:          1
 License:          MPLv1.1 or GPLv2+ or LGPLv2+
 URL:              http://www.mozilla.org/projects/security/pki/nss/
@@ -40,7 +40,7 @@ Source7:          blank-key4.db
 Source8:          system-pkcs11.txt
 Source9:          setup-nsssysinit.sh
 Source11:         nss-prelink.conf
-Source12:         %{name}-pem-20101125.tar.bz2
+Source12:         %{name}-pem-20120811.tar.bz2
 
 Patch1:           nss-no-rpath.patch
 Patch2:           nss-nolocalsql.patch
@@ -48,6 +48,8 @@ Patch3:           nss-3.12.8-char.patch
 Patch6:           nss-enable-pem.patch
 Patch8:           nss-sysinit-userdb-first.patch
 Patch9:           nss-3.13.3-notimestamps.patch
+Patch10:          0001-sync-up-with-upstream-softokn-changes.patch
+Patch11:          add_SEC_PKCS7VerifyDetachedSignatureAtTime_842856.patch
 
 %description
 Network Security Services (NSS) is a set of libraries designed to
@@ -133,6 +135,8 @@ low level services.
 %patch6 -p0 -b .libpem
 %patch8 -p0 -b .rh603313
 %patch9 -p1 -b .timestamping
+%patch10 -p1 -b .softokn
+%patch11 -p0 -b .842856
 
 %build
 
@@ -429,7 +433,9 @@ done
 %{_includedir}/nss3/sslproto.h
 %{_includedir}/nss3/sslt.h
 %{_includedir}/nss3/utilrename.h
-
+%{_includedir}/nss3/utilmodt.h
+%{_includedir}/nss3/utilpars.h
+%{_includedir}/nss3/utilparst.h
 
 %files pkcs11-devel
 %defattr(-, root, root,-)

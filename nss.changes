@@ -1,3 +1,6 @@
+* Fri Apr 05 2013 Dmitry Rozhkov <dmitry.rozhkov@jollamobile.com> - 3.14.3
+- Update to 3.14.3
+
 * Tue Jan 22 2013 Oleg Girko <ol+mer@infoserver.ru> - 3.13.3
 - Do not rely on already installed nss to sign shared libraries.
 

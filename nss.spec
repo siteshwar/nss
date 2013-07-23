@@ -1,9 +1,9 @@
-%define nspr_version 4.9
+%define nspr_version 4.10
 %define unsupported_tools_directory %{_libdir}/nss/unsupported-tools
 
 Summary:          Network Security Services
 Name:             nss
-Version:          3.14.3
+Version:          3.15.1
 Release:          1
 License:          MPLv1.1 or GPLv2+ or LGPLv2+
 URL:              http://www.mozilla.org/projects/security/pki/nss/
@@ -49,7 +49,7 @@ Patch6:           nss-enable-pem.patch
 Patch8:           nss-sysinit-userdb-first.patch
 Patch9:           nss-3.13.3-notimestamps.patch
 Patch10:          0001-sync-up-with-upstream-softokn-changes.patch
-Patch11:          add_SEC_PKCS7VerifyDetachedSignatureAtTime_842856.patch
+Patch11:          bug-658222-false-start.patch
 
 %description
 Network Security Services (NSS) is a set of libraries designed to
@@ -69,7 +69,7 @@ server applications. Applications built with NSS can support SSL v2
 and v3, TLS, PKCS #5, PKCS #7, PKCS #11, PKCS #12, S/MIME, X.509
 v3 certificates, and other security standards.
 
-Install the nss-softokn-freebl package if you need the freebl 
+Install the nss-softokn-freebl package if you need the freebl
 library.
 
 
@@ -136,7 +136,7 @@ low level services.
 %patch8 -p0 -b .rh603313
 %patch9 -p1 -b .timestamping
 %patch10 -p1 -b .softokn
-%patch11 -p0 -b .842856
+%patch11 -p1
 
 %build
 
@@ -166,9 +166,7 @@ export USE_64=1
 # NSS_ENABLE_ECC=1
 # export NSS_ENABLE_ECC
 
-%{__make} -C ./mozilla/security/coreconf
-%{__make} -C ./mozilla/security/dbm
-%{__make} -C ./mozilla/security/nss
+%{__make} -C ./nss
 
 
 # Produce .chk files for the final stripped binaries
@@ -192,9 +190,9 @@ export USE_64=1
                           -e "s,%%NSS_VERSION%%,%{version},g" > \
                           $RPM_BUILD_ROOT/%{_libdir}/pkgconfig/nss.pc
 
-NSS_VMAJOR=`cat mozilla/security/nss/lib/nss/nss.h | grep "#define.*NSS_VMAJOR" | awk '{print $3}'`
-NSS_VMINOR=`cat mozilla/security/nss/lib/nss/nss.h | grep "#define.*NSS_VMINOR" | awk '{print $3}'`
-NSS_VPATCH=`cat mozilla/security/nss/lib/nss/nss.h | grep "#define.*NSS_VPATCH" | awk '{print $3}'`
+NSS_VMAJOR=`cat nss/lib/nss/nss.h | grep "#define.*NSS_VMAJOR" | awk '{print $3}'`
+NSS_VMINOR=`cat nss/lib/nss/nss.h | grep "#define.*NSS_VMINOR" | awk '{print $3}'`
+NSS_VPATCH=`cat nss/lib/nss/nss.h | grep "#define.*NSS_VPATCH" | awk '{print $3}'`
 
 export NSS_VMAJOR 
 export NSS_VMINOR 
@@ -226,7 +224,7 @@ for file in libsoftokn3.so libfreebl3.so libnss3.so libnssutil3.so \
             libssl3.so libsmime3.so libnssckbi.so libnsspem.so libnssdbm3.so \
             libnsssysinit.so
 do
-  %{__install} -m 755 mozilla/dist/*.OBJ/lib/$file $RPM_BUILD_ROOT/%{_libdir}
+  %{__install} -m 755 dist/*.OBJ/lib/$file $RPM_BUILD_ROOT/%{_libdir}
 done
 
 # Install the empty NSS db files
@@ -246,23 +244,23 @@ done
 # Copy the development libraries we want
 for file in libcrmf.a libnssb.a libnssckfw.a
 do
-  %{__install} -m 644 mozilla/dist/*.OBJ/lib/$file $RPM_BUILD_ROOT/%{_libdir}
+  %{__install} -m 644 dist/*.OBJ/lib/$file $RPM_BUILD_ROOT/%{_libdir}
 done
 
 # Copy the binaries we want
 for file in certutil cmsutil crlutil modutil pk12util signtool signver ssltap
 do
-  %{__install} -m 755 mozilla/dist/*.OBJ/bin/$file $RPM_BUILD_ROOT/%{_bindir}
+  %{__install} -m 755 dist/*.OBJ/bin/$file $RPM_BUILD_ROOT/%{_bindir}
 done
 
 # Copy the binaries we ship as unsupported
 for file in atob btoa derdump ocspclnt pp selfserv shlibsign strsclnt symkeyutil tstclnt vfyserv vfychain
 do
-  %{__install} -m 755 mozilla/dist/*.OBJ/bin/$file $RPM_BUILD_ROOT/%{unsupported_tools_directory}
+  %{__install} -m 755 dist/*.OBJ/bin/$file $RPM_BUILD_ROOT/%{unsupported_tools_directory}
 done
 
 # Copy the include files we want
-for file in mozilla/dist/public/nss/*.h
+for file in dist/public/nss/*.h
 do
   %{__install} -m 644 $file $RPM_BUILD_ROOT/%{_includedir}/nss3
 done

@@ -1,5 +1,5 @@
---- ./mozilla/security/nss/cmd/platlibs.mk.withrpath	2013-03-09 02:09:57.584660753 +0200
-+++ ./mozilla/security/nss/cmd/platlibs.mk	2013-03-09 02:10:59.144484108 +0200
+--- ./nss/cmd/platlibs.mk.withrpath	2013-03-09 02:09:57.584660753 +0200
++++ ./nss/cmd/platlibs.mk	2013-03-09 02:10:59.144484108 +0200
 @@ -18,9 +18,9 @@
  
  ifeq ($(OS_ARCH), Linux)

@@ -1,7 +1,7 @@
-diff --git a/mozilla/security/nss/lib/ckfw/builtins/ckbiver.c b/mozilla/security/nss/lib/ckfw/builtins/ckbiver.c
+diff --git a/nss/lib/ckfw/builtins/ckbiver.c b/nss/lib/ckfw/builtins/ckbiver.c
 index f9b1a87..221e1a7 100644
---- a/mozilla/security/nss/lib/ckfw/builtins/ckbiver.c
-+++ b/mozilla/security/nss/lib/ckfw/builtins/ckbiver.c
+--- a/nss/lib/ckfw/builtins/ckbiver.c
++++ b/nss/lib/ckfw/builtins/ckbiver.c
 @@ -52,7 +52,7 @@
   */
  const char __nss_builtins_rcsid[] = "$Header: NSS Builtin Trusted Root CAs "
@@ -12,10 +12,10 @@ index f9b1a87..221e1a7 100644
          NSS_BUILTINS_LIBRARY_VERSION _DEBUG_STRING
 -        "  " __DATE__ " " __TIME__;
 +        "  " "Built in OBS" " " "see rpm -q --info nss for more information";
-diff --git a/mozilla/security/nss/lib/ckfw/capi/ckcapiver.c b/mozilla/security/nss/lib/ckfw/capi/ckcapiver.c
+diff --git a/nss/lib/ckfw/capi/ckcapiver.c b/nss/lib/ckfw/capi/ckcapiver.c
 index d692905..6255340 100644
---- a/mozilla/security/nss/lib/ckfw/capi/ckcapiver.c
-+++ b/mozilla/security/nss/lib/ckfw/capi/ckcapiver.c
+--- a/nss/lib/ckfw/capi/ckcapiver.c
++++ b/nss/lib/ckfw/capi/ckcapiver.c
 @@ -53,7 +53,7 @@
   */
  const char __nss_ckcapi_rcsid[] = "$Header: NSS Access to Microsoft Certificate Store "
@@ -26,10 +26,10 @@ index d692905..6255340 100644
          NSS_CKCAPI_LIBRARY_VERSION _DEBUG_STRING
 -        "  " __DATE__ " " __TIME__;
 +        "  " "Built in OBS" " " "see rpm -q --info nss for more information";
-diff --git a/mozilla/security/nss/lib/ckfw/nssmkey/ckmkver.c b/mozilla/security/nss/lib/ckfw/nssmkey/ckmkver.c
+diff --git a/nss/lib/ckfw/nssmkey/ckmkver.c b/nss/lib/ckfw/nssmkey/ckmkver.c
 index 9cbb2d2..d5940db 100644
---- a/mozilla/security/nss/lib/ckfw/nssmkey/ckmkver.c
-+++ b/mozilla/security/nss/lib/ckfw/nssmkey/ckmkver.c
+--- a/nss/lib/ckfw/nssmkey/ckmkver.c
++++ b/nss/lib/ckfw/nssmkey/ckmkver.c
 @@ -53,7 +53,7 @@
   */
  const char __nss_ckmk_rcsid[] = "$Header: NSS Access to the MAC OS X Key Ring "
@@ -40,10 +40,10 @@ index 9cbb2d2..d5940db 100644
          NSS_CKMK_LIBRARY_VERSION _DEBUG_STRING
 -        "  " __DATE__ " " __TIME__;
 +        "  " "Built in OBS" " " "see rpm -q --info nss for more information";
-diff --git a/mozilla/security/nss/lib/ckfw/pem/ckpemver.c b/mozilla/security/nss/lib/ckfw/pem/ckpemver.c
+diff --git a/nss/lib/ckfw/pem/ckpemver.c b/nss/lib/ckfw/pem/ckpemver.c
 index 76ab5df..6498c3e 100644
---- a/mozilla/security/nss/lib/ckfw/pem/ckpemver.c
-+++ b/mozilla/security/nss/lib/ckfw/pem/ckpemver.c
+--- a/nss/lib/ckfw/pem/ckpemver.c
++++ b/nss/lib/ckfw/pem/ckpemver.c
 @@ -53,7 +53,7 @@
   */
  const char __nss_ckpem_rcsid[] = "$Header: NSS Access to Flat Files in PEM format"
@@ -54,10 +54,10 @@ index 76ab5df..6498c3e 100644
          NSS_CKPEM_LIBRARY_VERSION _DEBUG_STRING
 -        "  " __DATE__ " " __TIME__;
 +        "  " "Built in OBS" " " "see rpm -q --info nss for more information";
-diff --git a/mozilla/security/nss/lib/freebl/freeblver.c b/mozilla/security/nss/lib/freebl/freeblver.c
+diff --git a/nss/lib/freebl/freeblver.c b/nss/lib/freebl/freeblver.c
 index 2c59545..f3e38ed 100644
---- a/mozilla/security/nss/lib/freebl/freeblver.c
-+++ b/mozilla/security/nss/lib/freebl/freeblver.c
+--- a/nss/lib/freebl/freeblver.c
++++ b/nss/lib/freebl/freeblver.c
 @@ -51,6 +51,6 @@
   * must not end in a '$' to prevent rcs keyword substitution.
   */
@@ -67,10 +67,10 @@ index 2c59545..f3e38ed 100644
  const char __nss_freebl_sccsid[] = "@(#)NSS " SOFTOKEN_VERSION _DEBUG_STRING
 -        "  " __DATE__ " " __TIME__;
 +        "  " "Built in OBS" " " "see rpm -q --info nss for more information";
-diff --git a/mozilla/security/nss/lib/nss/nssver.c b/mozilla/security/nss/lib/nss/nssver.c
+diff --git a/nss/lib/nss/nssver.c b/nss/lib/nss/nssver.c
 index 9d7f813..5f66ead 100644
---- a/mozilla/security/nss/lib/nss/nssver.c
-+++ b/mozilla/security/nss/lib/nss/nssver.c
+--- a/nss/lib/nss/nssver.c
++++ b/nss/lib/nss/nssver.c
 @@ -51,6 +51,6 @@
   * must not end in a '$' to prevent rcs keyword substitution.
   */
@@ -80,10 +80,10 @@ index 9d7f813..5f66ead 100644
  const char __nss_base_sccsid[] = "@(#)NSS " NSS_VERSION _DEBUG_STRING
 -        "  " __DATE__ " " __TIME__;
 +        "  " "Built in OBS" " " "see rpm -q --info nss for more information";
-diff --git a/mozilla/security/nss/lib/smime/smimever.c b/mozilla/security/nss/lib/smime/smimever.c
+diff --git a/nss/lib/smime/smimever.c b/nss/lib/smime/smimever.c
 index df838e3..fb9585f 100644
---- a/mozilla/security/nss/lib/smime/smimever.c
-+++ b/mozilla/security/nss/lib/smime/smimever.c
+--- a/nss/lib/smime/smimever.c
++++ b/nss/lib/smime/smimever.c
 @@ -51,6 +51,6 @@
   * must not end in a '$' to prevent rcs keyword substitution.
   */
@@ -93,10 +93,10 @@ index df838e3..fb9585f 100644
  const char __nss_smime_sccsid[] = "@(#)NSS " NSS_VERSION _DEBUG_STRING
 -        "  " __DATE__ " " __TIME__;
 +        "  " "Built in OBS" " " "see rpm -q --info nss for more information";
-diff --git a/mozilla/security/nss/lib/softoken/legacydb/lginit.c b/mozilla/security/nss/lib/softoken/legacydb/lginit.c
+diff --git a/nss/lib/softoken/legacydb/lginit.c b/nss/lib/softoken/legacydb/lginit.c
 index c1b1578..ca28f9e 100644
---- a/mozilla/security/nss/lib/softoken/legacydb/lginit.c
-+++ b/mozilla/security/nss/lib/softoken/legacydb/lginit.c
+--- a/nss/lib/softoken/legacydb/lginit.c
++++ b/nss/lib/softoken/legacydb/lginit.c
 @@ -60,10 +60,8 @@
   * NOTE: the first component of the concatenated rcsid string
   * must not end in a '$' to prevent rcs keyword substitution.
@@ -110,10 +110,10 @@ index c1b1578..ca28f9e 100644
  
  typedef struct LGPrivateStr {
      NSSLOWCERTCertDBHandle *certDB;
-diff --git a/mozilla/security/nss/lib/softoken/softkver.c b/mozilla/security/nss/lib/softoken/softkver.c
+diff --git a/nss/lib/softoken/softkver.c b/nss/lib/softoken/softkver.c
 index 931d620..1b93143 100644
---- a/mozilla/security/nss/lib/softoken/softkver.c
-+++ b/mozilla/security/nss/lib/softoken/softkver.c
+--- a/nss/lib/softoken/softkver.c
++++ b/nss/lib/softoken/softkver.c
 @@ -51,6 +51,6 @@
   * must not end in a '$' to prevent rcs keyword substitution.
   */
@@ -123,10 +123,10 @@ index 931d620..1b93143 100644
  const char __nss_softokn_sccsid[] = "@(#)NSS " SOFTOKEN_VERSION _DEBUG_STRING
 -        "  " __DATE__ " " __TIME__;
 +        "  " "Built in OBS" " " "see rpm -q --info nss for more information";
-diff --git a/mozilla/security/nss/lib/ssl/sslver.c b/mozilla/security/nss/lib/ssl/sslver.c
+diff --git a/nss/lib/ssl/sslver.c b/nss/lib/ssl/sslver.c
 index 782048f..d1e2266 100644
---- a/mozilla/security/nss/lib/ssl/sslver.c
-+++ b/mozilla/security/nss/lib/ssl/sslver.c
+--- a/nss/lib/ssl/sslver.c
++++ b/nss/lib/ssl/sslver.c
 @@ -51,6 +51,6 @@
   * must not end in a '$' to prevent rcs keyword substitution.
   */
@@ -136,10 +136,10 @@ index 782048f..d1e2266 100644
  const char __nss_ssl_sccsid[] = "@(#)NSS " NSS_VERSION _DEBUG_STRING
 -        "  " __DATE__ " " __TIME__;
 +        "  " "Built in OBS" " " "see rpm -q --info nss for more information";
-diff --git a/mozilla/security/nss/lib/util/secoid.c b/mozilla/security/nss/lib/util/secoid.c
+diff --git a/nss/lib/util/secoid.c b/nss/lib/util/secoid.c
 index c722897..c44bbf3 100644
---- a/mozilla/security/nss/lib/util/secoid.c
-+++ b/mozilla/security/nss/lib/util/secoid.c
+--- a/nss/lib/util/secoid.c
++++ b/nss/lib/util/secoid.c
 @@ -59,9 +59,9 @@
   * must not end in a '$' to prevent rcs keyword substitution.
   */

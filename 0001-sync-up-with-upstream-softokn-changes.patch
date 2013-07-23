@@ -7,13 +7,13 @@ Subject: [PATCH] Sync up with upstream softokn changes
 - Numerous change upstream due to the work for TLS/DTLS 'Lucky 13' vulnerability CVE-2013-0169
 - It now compiles with the NSS_3_14_3_BETA1 source
 ---
- mozilla/security/nss/lib/ckfw/pem/rsawrapr.c |  338 +++++++-------------------
+ nss/lib/ckfw/pem/rsawrapr.c |  338 +++++++-------------------
  1 files changed, 82 insertions(+), 256 deletions(-)
 
-diff --git a/mozilla/security/nss/lib/ckfw/pem/rsawrapr.c b/mozilla/security/nss/lib/ckfw/pem/rsawrapr.c
+diff --git a/nss/lib/ckfw/pem/rsawrapr.c b/nss/lib/ckfw/pem/rsawrapr.c
 index 5ac4f39..3780d30 100644
---- a/mozilla/security/nss/lib/ckfw/pem/rsawrapr.c
-+++ b/mozilla/security/nss/lib/ckfw/pem/rsawrapr.c
+--- a/nss/lib/ckfw/pem/rsawrapr.c
++++ b/nss/lib/ckfw/pem/rsawrapr.c
 @@ -46,6 +46,7 @@
  #include "sechash.h"
  #include "base.h"

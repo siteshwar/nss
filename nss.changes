@@ -1,3 +1,10 @@
+* Tue Jul 23 2013 Dmitry Rozhkov <dmitry.rozhkov@jollamobile.com> - 3.15.1
+- Update to 3.15.1
+- Dropped add_SEC_PKCS7VerifyDetachedSignatureAtTime_842856.patch as it's
+  now in upstream
+- Added bug-658222-false-start.patch synchronizing the SSL code with that
+  in mozilla-central/nss code tree.
+
 * Fri Apr 05 2013 Dmitry Rozhkov <dmitry.rozhkov@jollamobile.com> - 3.14.3
 - Update to 3.14.3
 

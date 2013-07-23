@@ -1,6 +1,6 @@
-diff -up ./mozilla/security/nss/lib/sysinit/nsssysinit.c.603313 ./mozilla/security/nss/lib/sysinit/nsssysinit.c
---- ./mozilla/security/nss/lib/sysinit/nsssysinit.c.603313	2010-10-15 13:57:42.719738316 -0700
-+++ ./mozilla/security/nss/lib/sysinit/nsssysinit.c	2010-10-15 14:07:51.704637349 -0700
+diff -up ./nss/lib/sysinit/nsssysinit.c.603313 ./nss/lib/sysinit/nsssysinit.c
+--- ./nss/lib/sysinit/nsssysinit.c.603313	2010-10-15 13:57:42.719738316 -0700
++++ ./nss/lib/sysinit/nsssysinit.c	2010-10-15 14:07:51.704637349 -0700
 @@ -263,16 +263,26 @@ get_list(char *filename, char *stripped_
      sysdb = getSystemDB();
      userdb = getUserDB();

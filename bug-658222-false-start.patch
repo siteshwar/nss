@@ -1,0 +1,572 @@
+diff -r 05ffc38de8b4 nss/lib/ssl/ssl.def
+--- a/nss/lib/ssl/ssl.def	Thu Jun 27 19:58:08 2013 +0200
++++ b/nss/lib/ssl/ssl.def	Tue Jul 23 15:26:39 2013 +0300
+@@ -163,3 +163,10 @@
+ ;+    local:
+ ;+*;
+ ;+};
++;+NSS_3.15.2 {    # NSS 3.15.2 release
++;+    global:
++SSL_SetCanFalseStartCallback;
++SSL_DefaultCanFalseStart;
++;+    local:
++;+*;
++;+};
+diff -r 05ffc38de8b4 nss/lib/ssl/ssl.h
+--- a/nss/lib/ssl/ssl.h	Thu Jun 27 19:58:08 2013 +0200
++++ b/nss/lib/ssl/ssl.h	Tue Jul 23 15:26:39 2013 +0300
+@@ -121,14 +121,22 @@
+ #define SSL_ENABLE_FALSE_START         22 /* Enable SSL false start (off by */
+                                           /* default, applies only to       */
+                                           /* clients). False start is a     */
+-/* mode where an SSL client will start sending application data before      */
+-/* verifying the server's Finished message. This means that we could end up */
+-/* sending data to an imposter. However, the data will be encrypted and     */
+-/* only the true server can derive the session key. Thus, so long as the    */
+-/* cipher isn't broken this is safe. Because of this, False Start will only */
+-/* occur on RSA or DH ciphersuites where the cipher's key length is >= 80   */
+-/* bits. The advantage of False Start is that it saves a round trip for     */
+-/* client-speaks-first protocols when performing a full handshake.          */
++/* mode where an SSL client will start sending application data before
++ * verifying the server's Finished message. This means that we could end up
++ * sending data to an imposter. However, the data will be encrypted and
++ * only the true server can derive the session key. Thus, so long as the
++ * cipher isn't broken this is safe. The advantage of false start is that
++ * it saves a round trip for client-speaks-first protocols when performing a
++ * full handshake.
++ *
++ * See SSL_DefaultCanFalseStart for the default criteria that NSS uses to
++ * determine whether to false start or not. See SSL_SetCanFalseStartCallback
++ * for how to change that criteria. In addition to those criteria, false start
++ * will only be done when the server selects a cipher suite with an effective
++ * key length of 80 bits or more (including RC4-128). Also, see
++ * SSL_HandshakeCallback for a description on how false start affects when the
++ * handshake callback gets called.
++ */
+ 
+ /* For SSL 3.0 and TLS 1.0, by default we prevent chosen plaintext attacks
+  * on SSL CBC mode cipher suites (see RFC 4346 Section F.3) by splitting
+@@ -653,14 +661,59 @@
+ SSL_IMPORT SECStatus SSL_InheritMPServerSIDCache(const char * envString);
+ 
+ /*
+-** Set the callback on a particular socket that gets called when we finish
+-** performing a handshake.
++** Set the callback that normally gets called when the TLS handshake
++** is complete. If false start is not enabled, then the handshake callback is
++** called after verifying the peer's Finished message and before sending
++** outgoing application data and before processing incoming application data.
++**
++** If false start is enabled and there is a custom CanFalseStartCallback
++** callback set, then the handshake callback gets called after the peer's
++** Finished message has been verified, which may be after application data is
++** sent.
++**
++** If false start is enabled and there is not a custom CanFalseStartCallback
++** callback established with SSL_SetCanFalseStartCallback then the handshake
++** callback gets called before any application data is sent, which may be
++** before the peer's Finished message has been verified.
+ */
+ typedef void (PR_CALLBACK *SSLHandshakeCallback)(PRFileDesc *fd,
+                                                  void *client_data);
+ SSL_IMPORT SECStatus SSL_HandshakeCallback(PRFileDesc *fd, 
+ 			          SSLHandshakeCallback cb, void *client_data);
+ 
++/* Applications that wish to customize TLS false start should set this callback
++** function. NSS will invoke the functon to determine if a particular
++** connection should use false start or not. SECSuccess indicates that the
++** callback completed successfully, and if so *canFalseStart indicates if false
++** start can be used. If the callback does not return SECSuccess then the
++** handshake will be canceled.
++**
++** Applications that do not set the callback will use an internal set of
++** criteria to determine if the connection should false start. If
++** the callback is set false start will never be used without invoking the
++** callback function, but some connections (e.g. resumed connections) will
++** never use false start and therefore will not invoke the callback.
++**
++** NSS's internal criteria for this connection can be evaluated by calling
++** SSL_DefaultCanFalseStart() from the custom callback.
++**
++** See the description of SSL_HandshakeCallback for important information on
++** how registering a custom false start callback affects when the handshake
++** callback gets called.
++**/
++typedef SECStatus (PR_CALLBACK *SSLCanFalseStartCallback)(
++    PRFileDesc *fd, void *arg, PRBool *canFalseStart);
++
++SSL_IMPORT SECStatus SSL_SetCanFalseStartCallback(
++    PRFileDesc *fd, SSLCanFalseStartCallback callback, void *arg);
++
++/* A utility function that can be called from a custom CanFalseStartCallback
++** function to determine what NSS would have done for this connection if the
++** custom callback was not implemented.
++**/
++SSL_IMPORT SECStatus SSL_DefaultCanFalseStart(PRFileDesc *fd,
++                                              PRBool *canFalseStart);
++
+ /*
+ ** For the server, request a new handshake.  For the client, begin a new
+ ** handshake.  If flushCache is non-zero, the SSL3 cache entry will be 
+diff -r 05ffc38de8b4 nss/lib/ssl/ssl3con.c
+--- a/nss/lib/ssl/ssl3con.c	Thu Jun 27 19:58:08 2013 +0200
++++ b/nss/lib/ssl/ssl3con.c	Tue Jul 23 15:26:39 2013 +0300
+@@ -6669,35 +6669,51 @@
+     return rv;
+ }
+ 
+-PRBool
+-ssl3_CanFalseStart(sslSocket *ss) {
+-    PRBool rv;
++static SECStatus
++ssl3_CheckFalseStart(sslSocket *ss)
++{
++    SECStatus rv;
++    PRBool maybeFalseStart = PR_TRUE;
+ 
+     PORT_Assert( ss->opt.noLocks || ssl_HaveSSL3HandshakeLock(ss) );
+-
+-    /* XXX: does not take into account whether we are waiting for
+-     * SSL_AuthCertificateComplete or SSL_RestartHandshakeAfterCertReq. If/when
+-     * that is done, this function could return different results each time it
+-     * would be called.
+-     */
++    PORT_Assert( !ss->ssl3.hs.authCertificatePending );
++
++    /* An attacker can control the selected ciphersuite so we only wish to
++     * do False Start in the case that the selected ciphersuite is
++     * sufficiently strong that the attack can gain no advantage.
++     * Therefore we always require an 80-bit cipher. */
+ 
+     ssl_GetSpecReadLock(ss);
+-    rv = ss->opt.enableFalseStart &&
+-	 !ss->sec.isServer &&
+-	 !ss->ssl3.hs.isResuming &&
+-	 ss->ssl3.cwSpec &&
+-
+-	 /* An attacker can control the selected ciphersuite so we only wish to
+-	  * do False Start in the case that the selected ciphersuite is
+-	  * sufficiently strong that the attack can gain no advantage.
+-	  * Therefore we require an 80-bit cipher and a forward-secret key
+-	  * exchange. */
+-	 ss->ssl3.cwSpec->cipher_def->secret_key_size >= 10 &&
+-	(ss->ssl3.hs.kea_def->kea == kea_dhe_dss ||
+-	 ss->ssl3.hs.kea_def->kea == kea_dhe_rsa ||
+-	 ss->ssl3.hs.kea_def->kea == kea_ecdhe_ecdsa ||
+-	 ss->ssl3.hs.kea_def->kea == kea_ecdhe_rsa);
++    if (ss->ssl3.cwSpec->cipher_def->secret_key_size < 10) {
++	ss->ssl3.hs.canFalseStart = PR_FALSE;
++	maybeFalseStart = PR_FALSE;
++    }
+     ssl_ReleaseSpecReadLock(ss);
++    if (!maybeFalseStart) {
++	return SECSuccess;
++    }
++
++    if (!ss->canFalseStartCallback) {
++	rv = SSL_DefaultCanFalseStart(ss->fd, &ss->ssl3.hs.canFalseStart);
++
++	if (rv == SECSuccess &&
++            ss->ssl3.hs.canFalseStart && ss->handshakeCallback) {
++	    /* Call the handshake callback here for backwards compatibility
++	     * with applications that were using false start before
++	     * canFalseStartCallback was added.
++	     */
++	    (ss->handshakeCallback)(ss->fd, ss->handshakeCallbackData);
++	}
++    } else {
++	rv = (ss->canFalseStartCallback)(ss->fd,
++ 					 ss->canFalseStartCallbackData,
++					 &ss->ssl3.hs.canFalseStart);
++    }
++
++    if (rv != SECSuccess) {
++	ss->ssl3.hs.canFalseStart = PR_FALSE;
++    }
++
+     return rv;
+ }
+ 
+@@ -6727,6 +6743,7 @@
+ 	return SECFailure;
+     }
+ 
++    ss->enoughFirstHsDone = PR_TRUE;
+     rv = ssl3_SendClientSecondRound(ss);
+ 
+     return rv;
+@@ -6825,6 +6842,23 @@
+ 	if (rv != SECSuccess) {
+ 	    goto loser;	/* err code was set. */
+ 	}
++
++	if (ss->opt.enableFalseStart) {
++	    if (!ss->ssl3.hs.authCertificatePending) {
++		rv = ssl3_CheckFalseStart(ss);
++		if (rv != SECSuccess) {
++		    goto loser;
++		}
++	    } else {
++		/* The certificate authentication and the server's Finished
++		 * message are going to race each other. If the certificate
++		 * authentication wins, then we will try to false start. If the
++		 * server's Finished message wins, then ssl3_HandleFinished will
++		 * reset restartTarget to ssl3_FinishHandshake.
++		 */
++		ss->ssl3.hs.restartTarget = ssl3_CheckFalseStart;
++	    }
++	}
+     }
+ 
+     rv = ssl3_SendFinished(ss, 0);
+@@ -6839,11 +6873,6 @@
+     else
+ 	ss->ssl3.hs.ws = wait_change_cipher;
+ 
+-    /* Do the handshake callback for sslv3 here, if we can false start. */
+-    if (ss->handshakeCallback != NULL && ssl3_CanFalseStart(ss)) {
+-	(ss->handshakeCallback)(ss->fd, ss->handshakeCallbackData);
+-    }
+-
+     return SECSuccess;
+ 
+ loser:
+@@ -9416,13 +9445,6 @@
+ 
+ 	    ss->ssl3.hs.authCertificatePending = PR_TRUE;
+ 	    rv = SECSuccess;
+-
+-	    /* XXX: Async cert validation and False Start don't work together
+-	     * safely yet; if we leave False Start enabled, we may end up false
+-	     * starting (sending application data) before we
+-	     * SSL_AuthCertificateComplete has been called.
+-	     */
+-	    ss->opt.enableFalseStart = PR_FALSE;
+ 	}
+ 
+ 	if (rv != SECSuccess) {
+@@ -10070,6 +10092,11 @@
+ 	ss->ssl3.hs.cacheSID = rv == SECSuccess;
+     }
+ 
++    /* Cancel false start check since we already completed the handshake */
++    if (ss->ssl3.hs.restartTarget == ssl3_CheckFalseStart) {
++	ss->ssl3.hs.restartTarget = NULL;
++    }
++
+     if (ss->ssl3.hs.authCertificatePending) {
+ 	if (ss->ssl3.hs.restartTarget) {
+ 	    PR_NOT_REACHED("ssl3_HandleFinished: unexpected restartTarget");
+@@ -10088,6 +10115,8 @@
+ SECStatus
+ ssl3_FinishHandshake(sslSocket * ss)
+ {
++    PRBool falseStarted;
++
+     PORT_Assert( ss->opt.noLocks || ssl_HaveRecvBufLock(ss) );
+     PORT_Assert( ss->opt.noLocks || ssl_HaveSSL3HandshakeLock(ss) );
+     PORT_Assert( ss->ssl3.hs.restartTarget == NULL );
+@@ -10095,6 +10124,7 @@
+     /* The first handshake is now completed. */
+     ss->handshake           = NULL;
+     ss->firstHsDone         = PR_TRUE;
++    ss->enoughFirstHsDone   = PR_TRUE;
+ 
+     if (ss->ssl3.hs.cacheSID) {
+ 	(*ss->sec.cache)(ss->sec.ci.sid);
+@@ -10102,9 +10132,14 @@
+     }
+ 
+     ss->ssl3.hs.ws = idle_handshake;
+-
+-    /* Do the handshake callback for sslv3 here, if we cannot false start. */
+-    if (ss->handshakeCallback != NULL && !ssl3_CanFalseStart(ss)) {
++    falseStarted = ss->ssl3.hs.canFalseStart;
++    ss->ssl3.hs.canFalseStart = PR_FALSE; /* False Start phase is complete */
++
++    /* Call the handshake callback for sslv3 here, unless we called it already
++     * for the case where false start was done without a canFalseStartCallback.
++     */
++    if (ss->handshakeCallback != NULL &&
++	!(falseStarted && !ss->canFalseStartCallback)) {
+ 	(ss->handshakeCallback)(ss->fd, ss->handshakeCallbackData);
+     }
+ 
+diff -r 05ffc38de8b4 nss/lib/ssl/ssl3gthr.c
+--- a/nss/lib/ssl/ssl3gthr.c	Thu Jun 27 19:58:08 2013 +0200
++++ b/nss/lib/ssl/ssl3gthr.c	Tue Jul 23 15:26:39 2013 +0300
+@@ -374,9 +374,7 @@
+ 	 */
+ 	if (ss->opt.enableFalseStart) {
+ 	    ssl_GetSSL3HandshakeLock(ss);
+-	    canFalseStart = (ss->ssl3.hs.ws == wait_change_cipher ||
+-			     ss->ssl3.hs.ws == wait_new_session_ticket) &&
+-		            ssl3_CanFalseStart(ss);
++	    canFalseStart = ss->ssl3.hs.canFalseStart;
+ 	    ssl_ReleaseSSL3HandshakeLock(ss);
+ 	}
+     } while (ss->ssl3.hs.ws != idle_handshake &&
+diff -r 05ffc38de8b4 nss/lib/ssl/sslauth.c
+--- a/nss/lib/ssl/sslauth.c	Thu Jun 27 19:58:08 2013 +0200
++++ b/nss/lib/ssl/sslauth.c	Tue Jul 23 15:26:39 2013 +0300
+@@ -60,7 +60,6 @@
+     sslSocket *ss;
+     const char *cipherName;
+     PRBool isDes = PR_FALSE;
+-    PRBool enoughFirstHsDone = PR_FALSE;
+ 
+     ss = ssl_FindSocket(fd);
+     if (!ss) {
+@@ -78,14 +77,7 @@
+ 	*op = SSL_SECURITY_STATUS_OFF;
+     }
+ 
+-    if (ss->firstHsDone) {
+-	enoughFirstHsDone = PR_TRUE;
+-    } else if (ss->version >= SSL_LIBRARY_VERSION_3_0 &&
+-	       ssl3_CanFalseStart(ss)) {
+-	enoughFirstHsDone = PR_TRUE;
+-    }
+-
+-    if (ss->opt.useSecurity && enoughFirstHsDone) {
++    if (ss->opt.useSecurity && ss->enoughFirstHsDone) {
+ 	if (ss->version < SSL_LIBRARY_VERSION_3_0) {
+ 	    cipherName = ssl_cipherName[ss->sec.cipherType];
+ 	} else {
+diff -r 05ffc38de8b4 nss/lib/ssl/sslimpl.h
+--- a/nss/lib/ssl/sslimpl.h	Thu Jun 27 19:58:08 2013 +0200
++++ b/nss/lib/ssl/sslimpl.h	Tue Jul 23 15:26:39 2013 +0300
+@@ -868,6 +868,8 @@
+     PRUint32              rtTimeoutMs;     /* The length of the current timeout
+ 					    * used for backoff (in ms) */
+     PRUint32              rtRetries;       /* The retry counter */
++    PRBool                canFalseStart;   /* Can/did we False Start */
++
+ } SSL3HandshakeState;
+ 
+ 
+@@ -1116,6 +1118,10 @@
+     unsigned long    clientAuthRequested;
+     unsigned long    delayDisabled;       /* Nagle delay disabled */
+     unsigned long    firstHsDone;         /* first handshake is complete. */
++    unsigned long    enoughFirstHsDone;   /* enough of the handshake is done
++					   * for callbacks to be able to
++					   * retrieve channel security
++					   * parameters from callback functions. */
+     unsigned long    handshakeBegun;     
+     unsigned long    lastWriteBlocked;   
+     unsigned long    recvdCloseNotify;    /* received SSL EOF. */
+@@ -1156,6 +1162,8 @@
+     void                     *badCertArg;
+     SSLHandshakeCallback      handshakeCallback;
+     void                     *handshakeCallbackData;
++    SSLCanFalseStartCallback  canFalseStartCallback;
++    void                     *canFalseStartCallbackData;
+     void                     *pkcs11PinArg;
+     SSLNextProtoCallback      nextProtoCallback;
+     void                     *nextProtoArg;
+@@ -1358,7 +1366,6 @@
+ 
+ extern SECStatus ssl_EnableNagleDelay(sslSocket *ss, PRBool enabled);
+ 
+-extern PRBool    ssl3_CanFalseStart(sslSocket *ss);
+ extern SECStatus
+ ssl3_CompressMACEncryptRecord(ssl3CipherSpec *   cwSpec,
+ 		              PRBool             isServer,
+diff -r 05ffc38de8b4 nss/lib/ssl/sslinfo.c
+--- a/nss/lib/ssl/sslinfo.c	Thu Jun 27 19:58:08 2013 +0200
++++ b/nss/lib/ssl/sslinfo.c	Tue Jul 23 15:26:39 2013 +0300
+@@ -26,7 +26,6 @@
+     sslSocket *      ss;
+     SSLChannelInfo   inf;
+     sslSessionID *   sid;
+-    PRBool           enoughFirstHsDone = PR_FALSE;
+ 
+     if (!info || len < sizeof inf.length) { 
+ 	PORT_SetError(SEC_ERROR_INVALID_ARGS);
+@@ -43,14 +42,7 @@
+     memset(&inf, 0, sizeof inf);
+     inf.length = PR_MIN(sizeof inf, len);
+ 
+-    if (ss->firstHsDone) {
+-	enoughFirstHsDone = PR_TRUE;
+-    } else if (ss->version >= SSL_LIBRARY_VERSION_3_0 &&
+-	       ssl3_CanFalseStart(ss)) {
+-	enoughFirstHsDone = PR_TRUE;
+-    }
+-
+-    if (ss->opt.useSecurity && enoughFirstHsDone) {
++    if (ss->opt.useSecurity && ss->enoughFirstHsDone) {
+         sid = ss->sec.ci.sid;
+ 	inf.protocolVersion  = ss->version;
+ 	inf.authKeyBits      = ss->sec.authKeyBits;
+diff -r 05ffc38de8b4 nss/lib/ssl/sslreveal.c
+--- a/nss/lib/ssl/sslreveal.c	Thu Jun 27 19:58:08 2013 +0200
++++ b/nss/lib/ssl/sslreveal.c	Tue Jul 23 15:26:39 2013 +0300
+@@ -77,7 +77,6 @@
+ {
+   /* some decisions derived from SSL_GetChannelInfo */
+   sslSocket * sslsocket = NULL;
+-  PRBool enoughFirstHsDone = PR_FALSE;
+ 
+   if (!pYes) {
+     PORT_SetError(SEC_ERROR_INVALID_ARGS);
+@@ -93,14 +92,8 @@
+ 
+   *pYes = PR_FALSE;
+ 
+-  if (sslsocket->firstHsDone) {
+-    enoughFirstHsDone = PR_TRUE;
+-  } else if (sslsocket->ssl3.initialized && ssl3_CanFalseStart(sslsocket)) {
+-    enoughFirstHsDone = PR_TRUE;
+-  }
+-
+   /* according to public API SSL_GetChannelInfo, this doesn't need a lock */
+-  if (sslsocket->opt.useSecurity && enoughFirstHsDone) {
++  if (sslsocket->opt.useSecurity && sslsocket->enoughFirstHsDone) {
+     if (sslsocket->ssl3.initialized) { /* SSL3 and TLS */
+       /* now we know this socket went through ssl3_InitState() and
+        * ss->xtnData got initialized, which is the only member accessed by
+diff -r 05ffc38de8b4 nss/lib/ssl/sslsecur.c
+--- a/nss/lib/ssl/sslsecur.c	Thu Jun 27 19:58:08 2013 +0200
++++ b/nss/lib/ssl/sslsecur.c	Tue Jul 23 15:26:39 2013 +0300
+@@ -108,10 +108,12 @@
+ 	    if ((ss->handshakeCallback != NULL) && /* has callback */
+ 		(!ss->firstHsDone) &&              /* only first time */
+ 		(ss->version < SSL_LIBRARY_VERSION_3_0)) {  /* not ssl3 */
+-		ss->firstHsDone     = PR_TRUE;
++		ss->firstHsDone = PR_TRUE;
++		ss->enoughFirstHsDone = PR_TRUE;
+ 		(ss->handshakeCallback)(ss->fd, ss->handshakeCallbackData);
+ 	    }
+-	    ss->firstHsDone         = PR_TRUE;
++	    ss->firstHsDone = PR_TRUE;
++	    ss->enoughFirstHsDone = PR_TRUE;
+ 	    ss->gs.writeOffset = 0;
+ 	    ss->gs.readOffset  = 0;
+ 	    break;
+@@ -206,6 +208,7 @@
+     ssl_Get1stHandshakeLock(ss);
+ 
+     ss->firstHsDone = PR_FALSE;
++    ss->enoughFirstHsDone = PR_FALSE;
+     if ( asServer ) {
+ 	ss->handshake = ssl2_BeginServerHandshake;
+ 	ss->handshaking = sslHandshakingAsServer;
+@@ -221,6 +224,8 @@
+     ssl_ReleaseRecvBufLock(ss);
+ 
+     ssl_GetSSL3HandshakeLock(ss);
++    ss->ssl3.hs.canFalseStart = PR_FALSE;
++    ss->ssl3.hs.restartTarget = NULL;
+ 
+     /*
+     ** Blow away old security state and get a fresh setup.
+@@ -331,6 +336,74 @@
+     return SECSuccess;
+ }
+ 
++/* Register an application callback to be called when false start may happen.
++** Acquires and releases HandshakeLock.
++*/
++SECStatus
++SSL_SetCanFalseStartCallback(PRFileDesc *fd, SSLCanFalseStartCallback cb,
++			     void *client_data)
++{
++    sslSocket *ss;
++
++    ss = ssl_FindSocket(fd);
++    if (!ss) {
++	SSL_DBG(("%d: SSL[%d]: bad socket in SSL_SetCanFalseStartCallback",
++		 SSL_GETPID(), fd));
++	return SECFailure;
++    }
++
++    if (!ss->opt.useSecurity) {
++	PORT_SetError(SEC_ERROR_INVALID_ARGS);
++	return SECFailure;
++    }
++
++    ssl_Get1stHandshakeLock(ss);
++    ssl_GetSSL3HandshakeLock(ss);
++
++    ss->canFalseStartCallback     = cb;
++    ss->canFalseStartCallbackData = client_data;
++
++    ssl_ReleaseSSL3HandshakeLock(ss);
++    ssl_Release1stHandshakeLock(ss);
++
++    return SECSuccess;
++}
++
++/* A utility function that can be called from a custom CanFalseStartCallback
++** function to determine what NSS would have done for this connection if the
++** custom callback was not implemented.
++*/
++SECStatus
++SSL_DefaultCanFalseStart(PRFileDesc *fd, PRBool *canFalseStart)
++{
++    sslSocket *ss;
++    *canFalseStart = PR_FALSE;
++    ss = ssl_FindSocket(fd);
++    if (!ss) {
++	SSL_DBG(("%d: SSL[%d]: bad socket in SSL_DefaultCanFalseStart",
++		 SSL_GETPID(), fd));
++	return SECFailure;
++    }
++
++    if (!ss->ssl3.initialized) {
++	PORT_SetError(SEC_ERROR_NOT_INITIALIZED);
++	return SECFailure;
++    }
++
++    if (ss->version <= SSL_LIBRARY_VERSION_3_0) {
++	PORT_SetError(SSL_ERROR_FEATURE_NOT_SUPPORTED_FOR_VERSION);
++	return SECFailure;
++    }
++
++    /* Require a forward-secret key exchange. */
++    *canFalseStart = ss->ssl3.hs.kea_def->kea == kea_dhe_dss ||
++		     ss->ssl3.hs.kea_def->kea == kea_dhe_rsa ||
++		     ss->ssl3.hs.kea_def->kea == kea_ecdhe_ecdsa ||
++		     ss->ssl3.hs.kea_def->kea == kea_ecdhe_rsa;
++
++    return SECSuccess;
++}
++
+ /* Try to make progress on an SSL handshake by attempting to read the 
+ ** next handshake from the peer, and sending any responses.
+ ** For non-blocking sockets, returns PR_ERROR_WOULD_BLOCK  if it cannot 
+@@ -1195,12 +1268,7 @@
+ 	ssl_Get1stHandshakeLock(ss);
+ 	if (ss->version >= SSL_LIBRARY_VERSION_3_0) {
+ 	    ssl_GetSSL3HandshakeLock(ss);
+-	    if ((ss->ssl3.hs.ws == wait_change_cipher ||
+-		ss->ssl3.hs.ws == wait_finished ||
+-		ss->ssl3.hs.ws == wait_new_session_ticket) &&
+-		ssl3_CanFalseStart(ss)) {
+-		canFalseStart = PR_TRUE;
+-	    }
++	    canFalseStart = ss->ssl3.hs.canFalseStart;
+ 	    ssl_ReleaseSSL3HandshakeLock(ss);
+ 	}
+ 	if (!canFalseStart &&
+diff -r 05ffc38de8b4 nss/lib/ssl/sslsock.c
+--- a/nss/lib/ssl/sslsock.c	Thu Jun 27 19:58:08 2013 +0200
++++ b/nss/lib/ssl/sslsock.c	Tue Jul 23 15:26:39 2013 +0300
+@@ -2341,9 +2341,13 @@
+ 	    } else if (new_flags & PR_POLL_WRITE) {
+ 		    /* The caller is trying to write, but the handshake is 
+ 		    ** blocked waiting for data to read, and the first 
+-		    ** handshake has been sent.  so do NOT to poll on write.
++		    ** handshake has been sent.  So do NOT to poll on write
++		    ** unless we did false start.
+ 		    */
+-		    new_flags ^=  PR_POLL_WRITE;   /* don't select on write. */
++		    if (!(ss->version >= SSL_LIBRARY_VERSION_3_0 &&
++			ss->ssl3.hs.canFalseStart)) {
++			new_flags ^=  PR_POLL_WRITE;   /* don't select on write. */
++		    }
+ 		    new_flags |=  PR_POLL_READ;	   /* do    select on read. */
+ 	    }
+ 	}

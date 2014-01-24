@@ -159,7 +159,7 @@ export USE_SYSTEM_ZLIB=1
 
 export NSS_USE_SYSTEM_SQLITE=1
 
-%ifarch x86_64 ppc64 ia64 s390x sparc64
+%ifarch x86_64 ppc64 ia64 s390x sparc64 aarch64
 export USE_64=1
 %endif
 

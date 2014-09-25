@@ -3,7 +3,7 @@
 
 Summary:          Network Security Services
 Name:             nss
-Version:          3.16.4
+Version:          3.16.5
 Release:          1
 License:          MPLv2
 URL:              http://www.mozilla.org/projects/security/pki/nss/
@@ -378,6 +378,7 @@ done
 %{_includedir}/nss3/pk11priv.h
 %{_includedir}/nss3/pk11pub.h
 %{_includedir}/nss3/pk11sdr.h
+%{_includedir}/nss3/pkcs1sig.h
 %{_includedir}/nss3/pkcs11.h
 %{_includedir}/nss3/pkcs11f.h
 %{_includedir}/nss3/pkcs11n.h

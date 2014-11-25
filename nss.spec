@@ -11,6 +11,7 @@ Group:            System/Libraries
 Requires:         nspr >= %{nspr_version}
 Requires:         nss-softokn-freebl%{_isa} >= %{version}
 Requires:         nss-system-init
+Requires:         nss-ckbi
 BuildRequires:    nspr-devel >= %{nspr_version}
 BuildRequires:    sqlite-devel
 BuildRequires:    zlib-devel
@@ -43,6 +44,16 @@ support cross-platform development of security-enabled client and
 server applications. Applications built with NSS can support SSL v2
 and v3, TLS, PKCS #5, PKCS #7, PKCS #11, PKCS #12, S/MIME, X.509
 v3 certificates, and other security standards.
+
+%package ckbi
+Summary:          CA trust library for Network Security Services
+Group:            System/Base
+Requires:         nss = %{version}-%{release}
+
+%description ckbi
+The nss-ckbi package provides CA trust store functionality to NSS.
+This package is separated to allow replacing this library with
+another compatible implementation.
 
 %package softokn-freebl
 Summary:          Freebl library for the Network Security Services
@@ -275,7 +286,6 @@ done
 %{_libdir}/libsmime3.so
 %{_libdir}/libsoftokn3.so
 %{_libdir}/libsoftokn3.chk
-%{_libdir}/libnssckbi.so
 %{_libdir}/libnsspem.so
 %{unsupported_tools_directory}/shlibsign
 %dir %{_libdir}/nss
@@ -287,6 +297,9 @@ done
 %dir %{_sysconfdir}/prelink.conf.d
 %config %{_sysconfdir}/prelink.conf.d/nss-prelink.conf
 
+%files ckbi
+%defattr(-,root,root,-)
+%{_libdir}/libnssckbi.so
 
 %files sysinit
 %defattr(-,root,root,-)
